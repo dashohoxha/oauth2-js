@@ -1,5 +1,6 @@
 # oauth2-js
-Get and manage OAuth2 tokens in JavaScript. For the time being it supports only the User Credentials (Password Authentication) flow.
+
+Get and manage OAuth2 tokens in JavaScript. For the time being it supports only the User Credentials (Password Authentication) flow. It saves the received token in the local storage and reuses it until it expires. When the token has expired, it tries to refresh it using the refresh_token. If this fails, then the authentication process starts from the beginning (get a username and password from the user, and use them to receive a new token).
 
 ## Interface
 
