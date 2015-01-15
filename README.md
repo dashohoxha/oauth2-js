@@ -1,5 +1,103 @@
 # oauth2-js
-Get and manage OAuth2 tokens in JavaScript.
+Get and manage OAuth2 tokens in JavaScript. For the time being it supports only the User Credentials (Password Authentication) flow.
+
+## Interface
+
+### Constructor
+
+```javascript
+var $token = new OAuth2.Token({
+    app_id: 'app1',
+    
+    // OAuth2 settings
+    token_endpoint: base_url + '/oauth2/token',
+    client_id: 'client1',
+    client_secret: 'secret1',
+    scope: '',
+    
+    // Function to call for asking a username and password from the user.
+    getPassword: function (callback) {
+        var username = prompt('Please enter your username', '');
+        var password = prompt('Please enter your password', '');
+        callback(username, password);
+    },
+   
+   // Function to call after getting an access token.
+    done: function(access_token) {
+        console.log('Access token: ' + access_token);
+    }, 
+    
+    // Function to call when getting an access token fails.
+    fail: function(jqXHR, textStatus, errorThrown ) {
+        console.log(textStatus + ' ' + jqXHR.status + ': ' + errorThrown);
+    },
+});
+```
+
+### Set callback function
+
+```javascript
+    /**
+     * Set the function that will use the access token.
+     * Can be used like this:
+     *   $token.get().done(function (access_token) { ... });
+     */
+    this.done = function (callback) {
+        _settings.done = callback;
+        return this;
+    };
+```
+
+### Set failure function
+
+```javascript
+    /**
+     * Set the function that will be called on failure.
+     * Can be chained like this:
+     *   $token.get().done( ... ).fail( ... );
+     */
+    this.fail = function (callback) {
+        _settings.fail = callback;
+        return this;
+    };
+```
+
+### Set the password function
+
+```javascript
+    /**
+     * Set the function that will be called for getting
+     * the user password, when needed. Can be chained like this:
+     *   $token.getPassword( ... ).get().done( ... );
+     */
+    this.getPassword = function (callback) {
+        _settings.getPassword = callback;
+        return this;
+    };
+```
+
+### Expire the current token
+
+```javascript
+$token.expire();
+```
+
+### Erase the current token
+
+```javascript
+$token.erase();
+```
+
+### Get an access_token
+
+```javascript
+    /**
+     * Get an access token and pass it to the callback function.
+     * Returns the object itself, so that it can be chained like this:
+     *   $token.get().done( ... ).fail( ... );
+     */
+    this.get = function () { ... };
+```
 
 
 ## Example
