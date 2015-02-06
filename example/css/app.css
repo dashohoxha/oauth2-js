@@ -1,0 +1,60 @@
+
+#popupMenu {
+    min-width: 120px;
+}
+
+#picture {
+    position: fixed;
+    right: 0px;
+    bottom: 0px;
+    border: none;
+    border-radius: 48px;
+    height: 48px;
+    width: 48px;
+    z-index: 999;
+}
+
+#status-line {
+    position: fixed;
+    left: 0px;
+    bottom: 0px;
+    height: 20px;
+    width: 100%;
+    background: #eeeeee;
+    text-align: center;
+    color: #000099;
+}
+
+#messages {
+    margin: 0px;
+    margin-bottom: 20px;
+    padding: 0px;
+    border: none;
+    background: none;
+}
+
+.message {
+    margin: 0px 10px 5px 10px;;
+    padding: 7px;
+    border: 1px solid #ffffff;
+    text-align: center;
+    border-radius: 5px;
+}
+
+.status {
+    background-color: #dff0d8;
+    color: #468847;
+    border-color: #d6e9c6;
+}
+
+.error {
+    background-color: #f2dede;
+    color: #b94a48;
+    border-color: #eed3d7;
+}
+
+.warning {
+    background-color: #ffffdd;
+    color: #cccc00;
+    border-color: #eed3d7;
+}
