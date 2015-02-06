@@ -70,13 +70,18 @@ var $token = new OAuth2.Token({
 ```javascript
     /**
      * Set the function that will be called for getting
-     * the user password, when needed. Can be chained like this:
-     *   $token.getPassword( ... ).get().done( ... );
+     * the user password, when needed.
      */
     this.getPassword = function (callback) {
         _settings.getPassword = callback;
         return this;
     };
+```
+
+### Return the current access token
+
+```javascript
+$token.access_token();
 ```
 
 ### Expire the current token
@@ -91,11 +96,15 @@ $token.expire();
 $token.erase();
 ```
 
-### Get an access_token
+### Get an access token
 
 ```javascript
     /**
      * Get an access token and pass it to the callback function.
+     *
+     * @param get_new {boolean}
+     *     If true, it will also try to get a new token when refreshing fails.
+     *
      * Returns the object itself, so that it can be chained like this:
      *   $token.get().done( ... ).fail( ... );
      */
@@ -105,9 +114,13 @@ $token.erase();
 
 ## Example
 
-For an example see:
+For an example see: 
+ - http://dashohoxha.github.io/oauth2-js/example/
+ - https://github.com/dashohoxha/oauth2-js/tree/master/example
 
-- [config.js (1-20)](https://github.com/B-Translator/vocabulary-jquery/blob/master/app/config.js#L1-20)
+Some highlights from the example:
+
+- [example/js/config.js](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/config.js)
 ```javascript
 var $app_id = 'vocabulary';
 var $base_url = 'https://btranslator.org';
@@ -120,64 +133,86 @@ var $oauth2_settings = {
 };
 ```
 
-- [app.js (1-35)](https://github.com/B-Translator/vocabulary-jquery/blob/master/app/app.js#L1-35)
+- [example/js/user.js (23-52)](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/user.js#L23-52)
 ```javascript
-/** Get a username and password and pass them to the callback function. */
-var get_username_and_password = function (callback) {
-    // Wait 1 sec so that any other popups are closed.
-    setTimeout(function () {
-        // Display the login template.
-        var popup_html = $('#tmpl-login').html();
-        $(popup_html)
-            .appendTo($.mobile.activePage)
-            .toolbar();
-        $("#popup-login")
-            .popup()           // init popup
-            .popup('open');    // open popup
+    /**
+     * Get a username and password and pass them
+     * to the given callback function.
+     */
+    var _getPassword = function (callback) {
+        // Wait 1 sec so that any other popups are closed.
+        setTimeout(function () {
+            // Display the login template.
+            var popup_html = $('#tmpl-login').html();
+            $(popup_html)
+                .appendTo($.mobile.activePage)
+                .toolbar();
+            $("#popup-login")
+                .popup()           // init popup
+                .popup('open');    // open popup
 
-        // When the form is submitted, pass the username
-        // and password to the callback function.
-        $('#form-login').on('submit', function (event) {
-            var username = $('#username')[0].value;
-            var password = $('#password')[0].value;
-            callback(username, password);
-        });
-    }, 1000);
-};
-
-/**
- * Create an oauth2 client that will get and manage an access_token.
- */
-$oauth2_settings.getPassword = get_username_and_password;
-$oauth2_settings.done = function (access_token) {
-        console.log('Access Token: ' + access_token);
+            // When the form is submitted, pass the username
+            // and password to the callback function.
+            $('#form-login').on('submit', function (event) {
+                var username = $('#username')[0].value;
+                var password = $('#password')[0].value;
+                _setName(username);
+                callback(username, password);
+                $('#popup-login').popup('close');
+            });
+        }, 1000);
     };
-var $token = new OAuth2.Token($oauth2_settings);
-//$token.erase();  //test
-//$token.expire();  //test
 
+    this.token = new OAuth2.Token($oauth2_settings);
+    this.token.getPassword(_getPassword);
 ```
 
-- [app.js (252-271)](https://github.com/B-Translator/vocabulary-jquery/blob/master/app/app.js#L252-271)
+- [example/js/app.js (47-76)](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/app.js#L47-76)
 ```javascript
-/**
- * Send a vote for the translation with the given id.
- */
-var vote_translation = function (tguid) {
-    $token.get().done(
-        function (access_token) {
-            http_request('/btr/translations/vote', {
-                method: 'POST',
-                data: { tguid: tguid },
-                headers: { 'Authorization': 'Bearer ' + access_token }
-            })
-                .done(function () {
-                    console.log('Vote submitted successfully.');
-                    refresh_translation_list();
-                })
-                .fail(function () {
-                    console.log('Vote submition failed.');
-                });
-        });
-};
+    var add_new_term = function () {
+        var term = $('#search-term')[0].value;
+        if (!term)  return false;
+
+        // Get the access_token.
+        var access_token = $user.token.access_token();
+        if (!access_token) {
+            $user.token.get().done(add_new_term);
+            return false;
+        }
+
+        // Add the new term.
+        http_request('/btr/project/add_string', {
+            type: 'POST',
+            data: {
+                origin: 'vocabulary',
+                project: 'ICT_sq',
+                string: term,
+                context: 'vocabulary',
+                notify: true,
+            },
+            headers: {
+                'Authorization': 'Bearer ' + access_token,
+            }
+        })
+            .done(function (result) {
+                display_translations(result.sguid);
+                message('New term added.');
+            });
+    };
+```
+
+Note that we first try to use an existing access_token, but if there is no valid access_token we get a new one and call back this function when it is done:
+```javascript
+    var add_new_term = function () {
+
+        // Get the access_token.
+        var access_token = $user.token.access_token();
+        if (!access_token) {
+            $user.token.get().done(add_new_term);
+            return false;
+        }
+
+        // Do what we need to do with the access_token
+        // [ . . . . . . . . . . ]
+    };
 ```
