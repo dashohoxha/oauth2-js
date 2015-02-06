@@ -24,9 +24,7 @@ OAuth2.Token = function (settings) {
         },
 
         // Function to call after getting an access token.
-        done: function(access_token) {
-            console.log('Access token: ' + access_token);
-        },
+        done: function() {},
 
         // Function to call when getting an access token fails.
         fail: function(jqXHR, textStatus, errorThrown ) {
@@ -77,10 +75,13 @@ OAuth2.Token = function (settings) {
         return JSON.parse(str_value);
     };
 
+    // Try to load it when a token object is constructed.
+    _token = _load();
+
     /**
      * Set the function that will use the access token.
      * Can be used like this:
-     *   $token.get().done(function (access_token) { ... });
+     *   $token.get().done(function () { ... });
      */
     this.done = function (callback) {
         _settings.done = callback;
@@ -99,8 +100,7 @@ OAuth2.Token = function (settings) {
 
     /**
      * Set the function that will be called for getting
-     * the user password, when needed. Can be chained like this:
-     *   $token.getPassword( ... ).get().done( ... );
+     * the user password, when needed.
      */
     this.getPassword = function (callback) {
         _settings.getPassword = callback;
@@ -122,37 +122,13 @@ OAuth2.Token = function (settings) {
         return this;
     };
 
-    /**
-     * Get an access token and pass it to the callback function.
-     * Returns the object itself, so that it can be chained like this:
-     *   $token.get().done( ... ).fail( ... );
-     */
-    this.get = function () {
-        // If there is no token, try to get it from local store.
-        if (!_token.access_token)  _token = _load();
-
-        // If the current token is a valid one, use it.
-        if (_valid()) {
-            setTimeout(function () {
-                _settings.done(_token.access_token);
-            }, 10);
-            return this;
-        }
-
-        // Otherwise try to get another one.
-        if (_token.refresh_token) {
-            _refreshExisting();
-        }
-        else {
-            _getNew();
-        }
-
-        return this;
+    /** Return the current access_token. */
+    this.access_token = function () {
+        return (_isValid() ? _token.access_token : null);
     };
 
-
     /** Return true if there is a valid token. */
-    var _valid = function () {
+    var _isValid = function () {
         // Check that we have an access_token.
         if (!_token)  return false;
         if (!_token.access_token)  return false;
@@ -166,29 +142,57 @@ OAuth2.Token = function (settings) {
         return true;
     };
 
-    /** Try to get a new token by using the refresh_token. */
-    var _refreshExisting = function () {
-        console.log('refresh_existing_token()'); //debug
+    /**
+     * Get an access token and pass it to the callback function.
+     *
+     * @param get_new {boolean}
+     *     If true, it will also try to get a new token when refreshing fails.
+     *
+     * Returns the object itself, so that it can be chained like this:
+     *   $token.get().done( ... ).fail( ... );
+     */
+    this.get = function (get_new) {
+        var get_new = (get_new !== false);
+        if (_token.refresh_token) {
+            _refreshExisting(get_new);
+        }
+        else {
+            if (get_new) _getNew();
+        }
+
+        return this;
+    };
+
+    /**
+     * Try to get a new token by using the refresh_token.
+     *
+     * @param get_new {boolean}
+     *     If true, it will also try to get a new token when refreshing fails.
+     */
+    var _refreshExisting = function (get_new) {
+        //console.log('refresh_existing_token()'); //debug
         _get({
             grant_type: 'refresh_token',
             refresh_token: _token.refresh_token,
         })
-            .fail(_getNew)
+            .fail(function () {
+                if (get_new) _getNew();
+            })
             .done(
                 function (response) {
                     _save(response);
                     if (_token.access_token) {
-                        _settings.done(_token.access_token);
+                        _settings.done();
                     }
                     else {
-                        _getNew();
+                        if (get_new) _getNew();
                     }
                 });
     };
 
     /** Get a new token from the oauth2 server. */
     var _getNew = function (username, password) {
-        console.log('_getNew()'); //debug
+        //console.log('_getNew()'); //debug
 
         if (!username || !password) {
             _settings.getPassword(_getNew);
@@ -205,7 +209,7 @@ OAuth2.Token = function (settings) {
                 function (response) {
                     _save(response);
                     if (_token.access_token) {
-                        _settings.done(_token.access_token);
+                        _settings.done();
                     }
                     else {
                         _settings.fail(this);
@@ -226,7 +230,6 @@ OAuth2.Token = function (settings) {
             headers: {
                 'Authorization': 'Basic ' + client_key, 
             },
-            //dataType: 'json',
         });
         return request;
     };
