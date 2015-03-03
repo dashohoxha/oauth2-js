@@ -21,15 +21,41 @@ var $user = new (function () {
     };
 
     /**
+     * The callback function is called to open e new popup.
+     * But first it makes sure that there are no other
+     * open popups, because jQM cannot open more than one popup
+     * at the same time.
+     */
+    var _openPopup = function (callback) {
+        if ($(".ui-page-active .ui-popup-active").length == 0) {
+            // Call the function that opens the popup.
+            if ($.isFunction(callback)) {
+                setTimeout(callback, 200);
+            }
+        }
+        else {
+            // Close any open popups and try again later.
+            $('.ui-page-active .ui-popup-active [data-role="popup"]').popup('close');
+            setTimeout(function () {
+                _openPopup(callback);
+            }, 100);
+        }
+    };
+
+    /**
      * Get a username and password and pass them
      * to the given callback function.
      */
     var _getPassword = function (callback) {
-        // Wait 1 sec so that any other popups are closed.
-        setTimeout(function () {
-            // Display the login template.
-            var popup_html = $('#tmpl-login').html();
-            $(popup_html)
+        _openPopup(function () {
+            // Display the login popup.
+            var login_tmpl = $('#tmpl-login').html();
+            var login_html = Mustache.render(login_tmpl, {
+                base_url: $config.api_url,
+                lng: $config.lng,
+                vocabulary: $config.vocabulary,
+            });
+            $(login_html)
                 .appendTo($.mobile.activePage)
                 .toolbar();
             $("#popup-login")
@@ -45,11 +71,58 @@ var $user = new (function () {
                 callback(username, password);
                 $('#popup-login').popup('close');
             });
-        }, 1000);
+        });
     };
 
-    this.token = new OAuth2.Token($oauth2_settings);
+    /**
+     * Open the given login_url on a new window and then call
+     * the given callback function, passing to it the login_url
+     * and the opened window as parameters.
+     *
+     * Sometimes browsers block new windows when the function
+     * that is trying to open them does not originate from a
+     * user event. This function checks whether the new window
+     * was blocked, and if so solves the problem by asking the
+     * user to request explicitly the login window.
+     */
+    var _openLoginWindow = function (login_url, callback, skip_checking) {
+        var win = window.open(login_url);
+        if (skip_checking) {
+            callback(login_url, win);
+            return;
+        }
+
+        try {
+            win.focus();   // will through an error if window.open() is blocked
+            callback(login_url, win);
+        }
+        catch (e) {
+            _openPopup(function () {
+                var login_tmpl = $('#tmpl-proxylogin').html();
+                var login_html = Mustache.render(login_tmpl, {
+                    base_url: $config.api_url,
+                    lng: $config.lng,
+                    vocabulary: $config.vocabulary,
+                    login_url: login_url,
+                });
+                $(login_html)
+                    .appendTo($.mobile.activePage)
+                    .toolbar();
+                $("#popup-proxylogin")
+                    .popup()           // init popup
+                    .popup('open');    // open popup
+
+                $('#open-proxy-login').on('click', function () {
+                    $("#popup-proxylogin").popup('close');
+                    _openLoginWindow(login_url, callback, true);
+                });
+            });
+        }
+    };
+
+    this.token = new OAuth2.Token($config.oauth2);
     this.token.getPassword(_getPassword);
+    this.token.openLoginWindow(_openLoginWindow);
     //this.token.erase();  //test
     //this.token.expire();  //test
 
@@ -74,7 +147,7 @@ var $user = new (function () {
     this.logout = function () {
         _setName(null);
         this.token.erase();
-        setTimeout(_reload, 100);
+        setTimeout(_reload, 1000);
     };
 
     // User permissions.
@@ -85,13 +158,16 @@ var $user = new (function () {
         // Try to refresh the token using refresh_token.
         var _refresh = function () {
             _setName(null);
-            that.token.get(false).done(_update);
+            that.token.get(false).done(_update)
+                .fail(function () {
+                    that.token.erase();
+                });
         };
 
         // Check that the given token is valid,
         // then update the user name and user profile.
         var _check_token = function (access_token) {
-            $.ajax($base_url + '/oauth2/tokens/' + access_token)
+            $.ajax($config.api_url + '/oauth2/tokens/' + access_token)
                 .fail(_refresh)
                 .done(function (response) {
                     _setName(response.user_id);
@@ -101,7 +177,7 @@ var $user = new (function () {
 
         // Get the user profile and save his permissions.
         var _get_user_profile = function (access_token) {
-            $.ajax($base_url + '/oauth2/user/profile', {
+            $.ajax($config.api_url + '/oauth2/user/profile', {
                 type: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + access_token,

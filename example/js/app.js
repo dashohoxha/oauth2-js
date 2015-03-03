@@ -110,14 +110,14 @@ var $app = (function () {
     };
 
     /**
-     * Extend the function http_request().
+     * Extend the function $.ajax().
      */
     var http_request = function(url, settings) {
         // If parameter settings is not given, assign a default value.
         var settings = settings || {};
 
         // Set some parameters of the ajax request.
-        settings.url = $base_url + url;
+        settings.url = $config.api_url + url;
         settings.dataType = 'json';
         // Before sending the request display a loading icon.
         settings.beforeSend = function() {
