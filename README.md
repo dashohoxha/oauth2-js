@@ -2,7 +2,7 @@
 
 Get and manage OAuth2 tokens in JavaScript.
 
-For the time being it supports only the User Credentials (Password Authentication) flow. It saves the received token in the local storage and reuses it until it expires. When the token has expired, it tries to refresh it using the refresh_token. If this fails, then the authentication process starts from the beginning (get a username and password from the user, and use them to receive a new token).
+For the time being it supports only the User Credentials (Password Authentication) flow. It saves the received token in the local storage and reuses it until it expires. When the token has expired, it tries to refresh it using the refresh_token. If this fails, then the authentication process starts from the beginning (get a username and password from the user, and use them to receive a new token). There is also a 'proxy' authorization flow which uses a server based oauth2 client. 
 
 ## Interface
 
@@ -13,26 +13,33 @@ var $token = new OAuth2.Token({
     app_id: 'app1',
     
     // OAuth2 settings
-    token_endpoint: base_url + '/oauth2/token',
+    auth_flow: 'password',                  // password | proxy
+    proxy_endpoint: 'https://example.org/oauth2/proxy',
+    token_endpoint: 'https://example.org/oauth2/token',
     client_id: 'client1',
     client_secret: 'secret1',
     scope: '',
-    
+
     // Function to call for asking a username and password from the user.
     getPassword: function (callback) {
-        var username = prompt('Please enter your username', '');
-        var password = prompt('Please enter your password', '');
-        callback(username, password);
+	var username = prompt('Please enter your username', '');
+	var password = prompt('Please enter your password', '');
+	callback(username, password);
     },
-   
-   // Function to call after getting an access token.
-    done: function(access_token) {
-        console.log('Access token: ' + access_token);
-    }, 
-    
+
+    // Function to call for opening a new window
+    // (used in the case of proxy auth flow).
+    openLoginWindow: function (url, callback) {
+	var win = window.open(url);
+	callback(url, win);
+    },
+
+    // Function to call after getting an access token.
+    done: function() {},
+
     // Function to call when getting an access token fails.
     fail: function(jqXHR, textStatus, errorThrown ) {
-        console.log(textStatus + ' ' + jqXHR.status + ': ' + errorThrown);
+	console.log(textStatus + ' ' + jqXHR.status + ': ' + errorThrown);
     },
 });
 ```
@@ -74,6 +81,15 @@ var $token = new OAuth2.Token({
      */
     this.getPassword = function (callback) {
         _settings.getPassword = callback;
+        return this;
+    };
+
+    /**
+     * Set the function that will be called for opening
+     * a new window with the proxy login.
+     */
+    this.openLoginWindow = function (callback) {
+        _settings.openLoginWindow = callback;
         return this;
     };
 ```
@@ -122,49 +138,27 @@ Some highlights from the example:
 
 - [example/js/config.js](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/config.js)
 ```javascript
-var $app_id = 'vocabulary';
-var $base_url = 'https://btranslator.org';
-var $oauth2_settings = {
-    app_id: $app_id,
-    token_endpoint: $base_url + '/oauth2/token',
-    client_id: 'vocabulary-jquery-ict-sq',
-    client_secret: 'Wadek9kAwgoovnepecOal8',
-    scope: 'user_profile',
+var $config = {
+    api_url: 'https://btranslator.org',
+
+    // Settings for oauth2 authentication.
+    oauth2: {
+	app_id: 'example',
+	auth_flow: 'proxy',     // password | proxy
+	proxy_endpoint: 'https://l10n.org.al/oauth2/proxy',
+	token_endpoint: 'https://btranslator.org/oauth2/token',
+	client_id: 'vocabulary-jquery-ict-sq',
+	client_secret: 'Wadek9kAwgoovnepecOal8',
+	scope: 'user_profile',
+    },
 };
 ```
 
-- [example/js/user.js (23-52)](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/user.js#L23-52)
+- [example/js/user.js (123-125)](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/user.js#L123-125)
 ```javascript
-    /**
-     * Get a username and password and pass them
-     * to the given callback function.
-     */
-    var _getPassword = function (callback) {
-        // Wait 1 sec so that any other popups are closed.
-        setTimeout(function () {
-            // Display the login template.
-            var popup_html = $('#tmpl-login').html();
-            $(popup_html)
-                .appendTo($.mobile.activePage)
-                .toolbar();
-            $("#popup-login")
-                .popup()           // init popup
-                .popup('open');    // open popup
-
-            // When the form is submitted, pass the username
-            // and password to the callback function.
-            $('#form-login').on('submit', function (event) {
-                var username = $('#username')[0].value;
-                var password = $('#password')[0].value;
-                _setName(username);
-                callback(username, password);
-                $('#popup-login').popup('close');
-            });
-        }, 1000);
-    };
-
-    this.token = new OAuth2.Token($oauth2_settings);
+    this.token = new OAuth2.Token($config.oauth2);
     this.token.getPassword(_getPassword);
+    this.token.openLoginWindow(_openLoginWindow);
 ```
 
 - [example/js/app.js (47-76)](https://github.com/dashohoxha/oauth2-js/blob/master/example/js/app.js#L47-76)
