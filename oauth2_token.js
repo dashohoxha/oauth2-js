@@ -185,7 +185,7 @@ OAuth2.Token = function (settings) {
             _refreshExisting(get_new);
         }
         else {
-            if (get_new) _getNew();
+            get_new ? _getNew() : _settings.fail(this);
         }
 
         return this;
@@ -280,9 +280,9 @@ OAuth2.Token = function (settings) {
 
         if ($.isFunction(_settings.openLoginWindow)) {
             _settings.openLoginWindow(
-		_settings.proxy_endpoint + '/login',
-		_getTokenFromProxy
-	    );
+                _settings.proxy_endpoint + '/login',
+                _getTokenFromProxy
+            );
         }
         else {
             var win = window.open(_settings.proxy_endpoint + '/login');
