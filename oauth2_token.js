@@ -135,6 +135,8 @@ OAuth2.Token = function (settings) {
 
     /** Erase the existing token. */
     this.erase = function () {
+        if (_token === _nullToken)  return;
+
         localStorage.removeItem(_key());
         _token = _nullToken;
 
